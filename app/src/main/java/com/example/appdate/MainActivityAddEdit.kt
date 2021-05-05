@@ -15,10 +15,9 @@ import android.widget.Spinner
 import android.widget.Toast
 import com.example.appdate.database.AppDatabase
 import com.example.appdate.database.DateEntity
-import com.example.appdate.database.UsuarioEntity
+import com.example.appdate.helper.Utils
 import com.example.appdate.helper.doAsync
 import kotlinx.android.synthetic.main.activity_main_add_edit.*
-import kotlinx.android.synthetic.main.activity_registro.*
 import kotlinx.android.synthetic.main.content_main_activity_add_edit.*
 import kotlinx.android.synthetic.main.content_registro.*
 import org.json.JSONException
@@ -33,152 +32,155 @@ import java.util.*
 
 class MainActivityAddEdit : AppCompatActivity() {
 
-    var idD: String=""
-    var NameD: String=""
-    var hilo: MainActivityAddEdit.webService? = null
+    var vID : String = ""
+    var vNameD : String = ""
+    var thread : MainActivityAddEdit.webService? = null
     val jsonParam = JSONObject()
+    val convert = Utils()
+
+    val vCalendar = Calendar.getInstance()
+    var vDay = vCalendar.get(Calendar.DAY_OF_MONTH)
+    var vMonth = vCalendar.get(Calendar.MONTH)
+    var vYear = vCalendar.get(Calendar.YEAR)
+
+    val vHour = vCalendar.get(Calendar.HOUR)
+    val vMinute = vCalendar.get(Calendar.MINUTE)
+
     companion object {
         // Extra for the task ID to be received in the intent
         val EXTRA_DATE_USERID = "extraDateUserId"
         val EXTRA_DATE_NAME ="extraDateName"
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main_add_edit)
-        //setSupportActionBar(toolbar)
 
+        val intent  = intent
+        vID = intent.getStringExtra(MainActivityAddEdit.EXTRA_DATE_USERID)
+        vNameD = intent.getStringExtra(MainActivityAddEdit.EXTRA_DATE_NAME)
+        etTitulo.setText(vNameD)
+
+        createSpinner()
+
+        cargaListener()
+
+    }
+
+    /**
+     * Metodo para cargar las acciones de las funciones de la UI
+     */
+    private fun cargaListener(){
         etFecha.setOnClickListener {
-            val c = Calendar.getInstance()
-            var day = c.get(Calendar.DAY_OF_MONTH)
-            var month = c.get(Calendar.MONTH)
-            var year = c.get(Calendar.YEAR)
+
             if (etFecha.length() != 0){
+
                 val sFec : String = etFecha.text.toString()
-                val fecha : Date = convFecha(sFec)
-                day = dayFromDate(fecha)
-                month = monthFromDate(fecha)
-                year = yearFromDate(fecha)
+                val fecha : Date = convert.convFecha(sFec)
+                vDay = convert.dayFromDate(fecha)
+                vMonth = convert.monthFromDate(fecha)
+                vYear = convert.yearFromDate(fecha)
             }
 
-            val dpd = DatePickerDialog(this, DatePickerDialog.OnDateSetListener { datePicker, year, monthOfYear, dayOfMonth ->
+            val dpkDate = DatePickerDialog(this, DatePickerDialog.OnDateSetListener { datePicker, year, monthOfYear, dayOfMonth ->
                 val sMes = "$monthOfYear"
-                val iMes = sMes.toInt()+1
+                val iMes = sMes.toInt() + 1
                 etFecha.setText("$year-" + iMes.toString() + "-$dayOfMonth")
-            }, year, month, day)
+            }, vYear, vMonth, vDay)
 
             //show datepicker
-            dpd.show()
+            dpkDate.show()
         }
 
 
-
-
         etHora.setOnClickListener {
-            val c = Calendar.getInstance()
-            val hour = c.get(Calendar.HOUR)
-            val minute = c.get(Calendar.MINUTE)
 
-            val tpd = TimePickerDialog(this, TimePickerDialog.OnTimeSetListener(function = { view, h, m ->
+            val dpkTime = TimePickerDialog(this, TimePickerDialog.OnTimeSetListener(function = { view, h, m ->
 
                 val sH = "$h"
                 val iM ="$m"
                 etHora.setText("$h:" + m.toString())
 
-            }),hour,minute,false)
+            }),vHour, vMinute,false)
 
 
             //show datepicker
-            tpd.show()
-        }
-
-
-
-
-        val intent=intent
-        idD = intent.getStringExtra(MainActivityAddEdit.EXTRA_DATE_USERID)
-        NameD = intent.getStringExtra(MainActivityAddEdit.EXTRA_DATE_NAME)
-
-        etTitulo.setText(NameD)
-
-        val array = arrayOf<String>("Centro", "Olivos")
-        val  Spinner = findViewById(R.id.idspinner) as Spinner
-        var adaptador = ArrayAdapter(this, android.R.layout.simple_list_item_1,array)
-        Spinner.adapter=adaptador
-
-
-        Spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener{
-            override fun onItemSelected(adapterView: AdapterView<*>, view: View, i: Int, l: Long) {
-                // Toast.makeText(this@MainActivity, array[i], Toast.LENGTH_LONG ).show()
-                if (i == 0){
-                    edLocation.setText("1")
-                }
-                if (i == 1)
-                {
-                    edLocation.setText("2")
-                }
-            }
-
-            override fun onNothingSelected(adapterView: AdapterView<*>?) {
-
-            }
+            dpkTime.show()
         }
 
 
         fab3.setOnClickListener { view ->
-            if (etTitulo.text.length == 0 || edLocation.text.length == 0 || etFecha.text.length ==0 || etHora.text.length ==0)
-            {
+            if (etTitulo.text.length == 0 || edLocation.text.length == 0 || etFecha.text.length ==0 || etHora.text.length ==0){
                 Snackbar.make(view, "Error: Faltan datos", Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
                 etTitulo.requestFocus()
-            }
-            else
-            {
+
+            }else{
                 var nomper = etTitulo.text.toString()
-                //var DateC = etDate.text.toString()
-                //var TimeC = etTime.text.toString()
                 var location = edLocation.text.toString()
-                var DateCi = etFecha.text.toString()
-                var TimeCi = etHora.text.toString()
+                var vDateCi = etFecha.text.toString()
+                var vTimeCi = etHora.text.toString()
                 //var Int:idU = 1
 
                 doAsync{
-                    Log.d("Salazar","Entro al doAsyn del hilo insertar")
-                    hilo = webService()
-                    hilo?.execute("Insert", "2", nomper, DateCi, TimeCi, location,idD)
+                    Log.d("log 1","Entro al doAsyn del hilo insertar")
+                    thread = webService()
+                    thread?.execute("Insert", "2", nomper, vDateCi, vTimeCi, location, vID)
                     runOnUiThread {
                     }
                 }.execute()
             }
         }
+    }
+
+    /**
+     * Metodo para crear el spinner the la UI
+     */
+    private fun createSpinner(){
+        val arrayCalles = arrayOf<String>("Centro", "Olivos")
+        val Spinner = findViewById(R.id.idspinner) as Spinner
+        var adaptador = ArrayAdapter(this, android.R.layout.simple_list_item_1, arrayCalles)
+
+        Spinner.adapter = adaptador
 
 
-    }//final del override del onCreate
+        Spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener{
+            override fun onItemSelected(adapterView: AdapterView<*>, view: View, i: Int, l: Long) {
+                if (i == 0){
+                    edLocation.setText("1")
+                }else if (i == 1){
+                    edLocation.setText("2")
+                }
+            }
+            override fun onNothingSelected(adapterView: AdapterView<*>?) {
 
+            }
+        }
+    }
 
 
     inner class webService(): AsyncTask<String, String, String>() {
-        override fun doInBackground(vararg p0: String?): String {//recivimos los argumentos del hilo.execute(parmet
+        override fun doInBackground(vararg parameters: String?): String {//recibimos los argumentos del hilo.execute(parmet
             var url: URL? = null
             var devuelve = ""
             try {
-                val option = p0[1]
+                val option = parameters[1]
                 val urlConn: HttpURLConnection
-                val printout: DataOutputStream
-                val input: DataInputStream
 
                 if (option == "2") {
-                    Log.d("Salazar", "Entro a la opcion 2")
-                    var nomper = p0[2]
-                    var DateCi = p0[3]
-                    var TimeCi = p0[4]
-                    var Location = p0[5]
-                    var idU = p0[5]
+                    Log.d("Log 2", "Entro a la opcion 2")
+                    val nomper = parameters[2]
+                    val vDateCi = parameters[3]
+                    val vTimeCi = parameters[4]
+                    val vLocation = parameters[5]
+                    val idU = parameters[5]
                     jsonParam.put("NomPersona", nomper)
-                    jsonParam.put("FechaCita", DateCi)
-                    jsonParam.put("HoraCita", TimeCi)
-                    jsonParam.put("idLocacion",Location)
-                    jsonParam.put("idUsuario", idU)
-                    url = URL("http://192.168.1.107/AppDate/WebServicedate/InsertDate.php")
+                    jsonParam.put("FechaCita",  vDateCi)
+                    jsonParam.put("HoraCita",   vTimeCi)
+                    jsonParam.put("idLocacion", vLocation)
+                    jsonParam.put("idUsuario",  idU)
+
+                    url = URL("http://localhost/AppDate/WebServicedate/InsertDate.php")
 
                 }
 
@@ -198,10 +200,10 @@ class MainActivityAddEdit : AppCompatActivity() {
                 write.flush()
                 write.close()
 
-                val respuesta = urlConn.responseCode
-                val result = StringBuilder()
-                if (respuesta == HttpURLConnection.HTTP_OK) {
-                    Log.d("Salazar", "Si se conecto")
+                val vResponse = urlConn.responseCode
+                val vResult = StringBuilder()
+                if (vResponse == HttpURLConnection.HTTP_OK) {
+                    Log.d("Log 3", "Si se conecto")
                     val inString: InputStream = urlConn.inputStream
                     val isReader = InputStreamReader(inString)
                     val bReader = BufferedReader(isReader)
@@ -211,10 +213,10 @@ class MainActivityAddEdit : AppCompatActivity() {
                         if (tempStr == null) {
                             break
                         }
-                        result.append(tempStr)
+                        vResult.append(tempStr)
                     }
                     urlConn.disconnect()
-                    devuelve = result.toString()
+                    devuelve = vResult.toString()
                 }
 
             } catch (ex: MalformedURLException) {
@@ -237,97 +239,43 @@ class MainActivityAddEdit : AppCompatActivity() {
             super.onPostExecute(result)
 
             val inte = Intent(this@MainActivityAddEdit, MainActivity::class.java)
-            //inte.putExtra(MainActivity.EXTRA_CONTACTO_CORREO, correo)
-            Log.d("Salazar2",result)
+            Log.d("log 4", result)
             try {
-                var respuestaJSON =
-                    JSONObject(result)//dentro de un avariable guardamos el resultado que jalamos en un jsonObJET
-                val resultJSON = respuestaJSON.getString("success")//decimos que el valor que queremos es el successv
+                val vResponseJson = JSONObject(result)//dentro de un avariable guardamos el resultado que obtenemos en un jsonObjet
+                val resultJSON = vResponseJson.getString("success")//Obtenemos la respuesta
+                val vMessage = vResponseJson.getString("message")
                 if (resultJSON == "204") {
-                    val msj = respuestaJSON.getString("message")
-                    Toast.makeText(this@MainActivityAddEdit, msj.toString(), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivityAddEdit, vMessage.toString(), Toast.LENGTH_SHORT).show()
                 }
-                if (resultJSON == "203") {
-                    val msj = respuestaJSON.getString("message")
-                    Toast.makeText(this@MainActivityAddEdit, msj.toString(), Toast.LENGTH_SHORT).show()
+                if (resultJSON == "203"){
+                    Toast.makeText(this@MainActivityAddEdit, vMessage.toString(), Toast.LENGTH_SHORT).show()
                     etUsrId.setText("")
 
                 }
                 if (resultJSON == "202") {
-                    Log.d("Salazar2","Ok dentro 202")
-                    val msj = respuestaJSON.getString("message")
-                    Toast.makeText(this@MainActivityAddEdit, msj.toString(), Toast.LENGTH_SHORT).show()
-                    var nomper = etTitulo.text.toString()
-                    //var DateC = etDate.text.toString()
-                    //var TimeC = etTime.text.toString()
-                    var location = edLocation.text.toString()
-                    var DateCi = etFecha.text.toString()
-                    var TimeCi = etHora.text.toString()
-                   // val dfec = convFecha(DateCi)
+                    val vMessage = vResponseJson.getString("message")
+                    Toast.makeText(this@MainActivityAddEdit, vMessage.toString(), Toast.LENGTH_SHORT).show()
+                    val nomper = etTitulo.text.toString()
+                    val location = edLocation.text.toString()
+                    val vDateCi = etFecha.text.toString()
+                    val vTimeCi = etHora.text.toString()
+                    val registroEntity = DateEntity(nomper = nomper,fechacita = vDateCi,horacita = vTimeCi,fecha = Date(), Status = "0",
+                        idlocacion = location, idUsuario = vID)
 
-                    //val registro2Entity = UsuarioEntity(nomusu = nom.toString(),correo = corr.toString(),telefono = tel.toString(),pwd = pwd.toString(),fecha = Date())
-                    Log.d("Salazar2","Amtes del doAsync")
-
-                    val registroEntity = DateEntity(nomper=nomper,fechacita = DateCi,horacita = TimeCi,fecha = Date(),Status = "0",idlocacion = location,idUsuario = idD)
                     doAsync {
-                        Log.d("Salazar2","Entro al registro del de room")
-                        //AppDatabase.getInstance(this@RegistroActivity)!!.usuarioDao().insertUsuario(registroEntity)
-                       // AppDatabase.getInstance(this@MainActivityAddEdit)!!.dateDao().insertDate(registroEntity)
                         AppDatabase.getInstance(this@MainActivityAddEdit)?.dateDao()?.insertDate(registroEntity)
                     }.execute()
-                    //val registroEntity = UsuarioEntity(nomusu = etUsrId.text.toString(),correo = etCorreo.text.toString(),telefono = etTelefono.text.toString(),pwd = etPwd.text.toString(),fecha = Date())
-                    //AppDatabase.getInstance(this@RegistroActivity)!!.usuarioDao().insertUsuario(registroEntity)
-                    Log.d("Salazar2","Salio okay")
 
-                    // val messageJSON1 = respuestaJSON.getString("message")
-                    // resultado = messageJSON1
                     startActivity(inte)
 
                 }
 
-
             } catch (ex: JSONException) {
-                Log.d("Salazar", ex.message)
+                Log.d("JSONException", ex.message)
             } catch (ex: java.lang.Exception) {
-                Log.d("Salazar", ex.message)
+                Log.d("Exception", ex.message)
             }
-
-            // resultado.setText(result)
         }
     }
-
-   //Comienzo de las converciones del boton de fecha
-    private fun convFecha(sFec: String): Date
-    {
-        var formatoDelTexto = SimpleDateFormat("yyyy-MM-dd")
-        var fecha: Date? = null
-        try {
-            fecha = formatoDelTexto.parse(sFec);
-        } catch (ex: ParseException) {
-            val sFec1 = "1900-01-01"
-            fecha = formatoDelTexto.parse(sFec1);
-        }
-        return  fecha!!
-    }
-    private fun monthFromDate(date: Date): Int {
-        val calendar = Calendar.getInstance()
-        calendar.time = date
-        return calendar.get(Calendar.MONTH)
-    }
-    private fun yearFromDate(date: Date): Int {
-        val calendar = Calendar.getInstance()
-        calendar.time = date
-        return calendar.get(Calendar.YEAR)
-    }
-
-    private fun dayFromDate(date: Date): Int {
-        val calendar = Calendar.getInstance()
-        calendar.time = date
-        return calendar.get(Calendar.DAY_OF_MONTH)
-    }
-    //Termino de las converciones del boton de fecha
-
-
-
 
 }
